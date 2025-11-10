@@ -13,7 +13,7 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = []
+dependencies = ["textarena>=0.7.3"]
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -25,7 +25,8 @@ classifiers = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["openverse"]
+where = ["."]
+include = ["openverse"]
 
 [project.urls]
 "Homepage" = "https://github.com/openverse-ai/openverse-sdk"

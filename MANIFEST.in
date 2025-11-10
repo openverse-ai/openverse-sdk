@@ -1,0 +1,3 @@
+recursive-include openverse *.py
+include README.md
+include LICENSE
