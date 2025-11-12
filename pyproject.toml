@@ -1,18 +1,19 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "openverse-sdk"
-version = "0.0.1"
+version = "0.0.3"
 description = "Openverse SDK for loading and caching text-based game environments."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
 authors = [
     { name = "Bobby Cheng" },
     { name = "Kevin Wang" },
     { name = "Yunfei Xie" }
 ]
-readme = "README.md"
-requires-python = ">=3.8"
 dependencies = ["textarena>=0.7.3"]
 
 classifiers = [
