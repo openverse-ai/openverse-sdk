@@ -6,6 +6,10 @@ from .auth import logout as _logout
 from .auth import whoami as _whoami
 from .api import OpenverseAPI
 from .utils import make_tarball
+import os
+import tarfile
+import tempfile
+import shutil
 
 
 app = typer.Typer(help="Openverse CLI — Manage your AI Environment Repositories")
@@ -113,16 +117,87 @@ def push(
         print(f"[bold red]Failed to push to repository: {e}[/bold red]")
 
 @app.command("pull")
-def pull(repo: str, output: str = "./repo.tar.gz"):
-    """Pull an environment repository."""
+def pull(repo: str, destination: str = typer.Argument(".")):
+    """
+    Pull an Openverse environment repository into a folder.
+
+    HuggingFace-like behavior:
+    - openverse-cli pull env     -> ./env/
+    - openverse-cli pull env dir -> dir/env/
+    """
+
     api = OpenverseAPI()
+
+    # -----------------------------
+    # Resolve destination
+    # -----------------------------
+    destination = os.path.abspath(destination)
+
+    # Default case → create ./repo/
+    if destination == os.path.abspath("."):
+        target_root = os.path.join(destination, repo)
+    else:
+        os.makedirs(destination, exist_ok=True)
+        target_root = os.path.join(destination, repo)
+
+    os.makedirs(target_root, exist_ok=True)
+
     try:
+        # -----------------------------
+        # Download tarball
+        # -----------------------------
         tarball_bytes = api.pull_repo(repo)
-        with open(output, "wb") as f:
+
+        # -----------------------------
+        # Extract to temp directory
+        # -----------------------------
+        tmp_dir = tempfile.mkdtemp()
+        tar_path = os.path.join(tmp_dir, "repo.tar.gz")
+
+        with open(tar_path, "wb") as f:
             f.write(tarball_bytes)
-        print(f"[green]✓ Pulled repository to: {output}[/green]")
+
+        with tarfile.open(tar_path, "r:gz") as tar:
+            tar.extractall(tmp_dir)
+
+        # Tar contains a folder named <repo>
+        extracted_repo_dir = os.path.join(tmp_dir, repo)
+
+        if not os.path.isdir(extracted_repo_dir):
+            raise Exception("Unexpected archive structure: missing repo folder")
+
+        # -----------------------------
+        # Merge extracted repo into target_root
+        # -----------------------------
+        for root, dirs, files in os.walk(extracted_repo_dir):
+            rel = os.path.relpath(root, extracted_repo_dir)
+            dest_dir = os.path.join(target_root, rel) if rel != "." else target_root
+
+            os.makedirs(dest_dir, exist_ok=True)
+
+            for f in files:
+                shutil.copy2(
+                    os.path.join(root, f),
+                    os.path.join(dest_dir, f)
+                )
+
+        print(f"[green]✓ Pulled environment into:[/green] {target_root}")
+
+    except HTTPError as e:
+        status = e.response.status_code if e.response else None
+
+        if status == 404:
+            print(f"[yellow]⚠ Environment '{repo}' does not exist.[/yellow]")
+            return
+
+        if status == 403:
+            print(f"[red]✗ No permission to pull '{repo}'.[/red]")
+            return
+
+        print(f"[red]✗ Failed to pull environment: {e}[/red]")
+
     except Exception as e:
-        print(f"[bold red]Failed to pull repository: {e}[/bold red]")
+        print(f"[bold red]Unexpected error: {e}[/bold red]")
 
 if __name__ == "__main__":
     app()
