@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openverse-sdk"
-version = "0.0.3"
-description = "Openverse SDK for loading and caching text-based game environments."
+version = "0.1.0"
+description = "Openverse SDK and CLI for loading, creating, and managing environments."
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -14,7 +14,12 @@ authors = [
     { name = "Kevin Wang" },
     { name = "Yunfei Xie" }
 ]
-dependencies = ["textarena>=0.7.3"]
+dependencies = [
+    "textarena>=0.7.3",
+    "requests",
+    "typer",
+    "rich",
+]
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -25,11 +30,14 @@ classifiers = [
     "Topic :: Games/Entertainment",
 ]
 
+[project.urls]
+Homepage = "https://github.com/openverse-ai/openverse-sdk"
+"Bug Tracker" = "https://github.com/openverse-ai/openverse-sdk/issues"
+Documentation = "https://docs.openverse.ai (coming soon)"
+
+[project.scripts]
+openverse-cli = "openverse.cli.cli:app"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["openverse"]
-
-[project.urls]
-"Homepage" = "https://github.com/openverse-ai/openverse-sdk"
-"Bug Tracker" = "https://github.com/openverse-ai/openverse-sdk/issues"
-"Documentation" = "https://docs.openverse.ai (coming soon)"
