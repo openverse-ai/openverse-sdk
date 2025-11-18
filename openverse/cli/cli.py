@@ -34,9 +34,7 @@ def login_cmd():
     print("[bold]To log in, you need an Openverse API token from:[/bold]")
     print("  https://open-verse.ai/settings/tokens\n")
 
-    # ----------------------------------------------------
     # 1. CHECK IF ALREADY LOGGED IN
-    # ----------------------------------------------------
     from .config import load_token
     existing = load_token()
 
@@ -46,9 +44,7 @@ def login_cmd():
         print("  openverse-cli logout\n")
         raise typer.Exit(code=0)
 
-    # ----------------------------------------------------
     # 2. PROMPT FOR TOKEN ONLY IF NOT LOGGED IN
-    # ----------------------------------------------------
     token = getpass.getpass("Enter your token (input hidden): ")
 
     success = _login(token)
@@ -97,8 +93,9 @@ def create(repo: str):
 
 @app.command("push")
 def push(
-    repo: str, 
-    path: str = typer.Argument("."),
+    repo: str,
+    local_path: str = typer.Argument("."),
+    remote_path: str = typer.Argument(None),
     message: str = typer.Option(
         None,
         "--message",
@@ -106,15 +103,58 @@ def push(
         help="Optional commit message for the push",
     )
 ):
-    """Push local files to an environment repository."""
+    """
+    Push local files to an environment repository.
+
+    Usage:
+      openverse-cli push repo .                       → push entire folder
+      openverse-cli push repo ./file.txt              → push single file to root
+      openverse-cli push repo ./a/b.txt x/y/z.txt     → push into subfolder x/y/z.txt
+    """
+
     api = OpenverseAPI()
+
+    # CASE A — User provided remote path
+    if remote_path is not None:
+
+        if not os.path.exists(local_path):
+            print(f"[red]✗ Local path does not exist: {local_path}[/red]")
+            raise typer.Exit(code=1)
+
+        # Create a temp structure that mirrors what the server expects
+        tmp_dir = tempfile.mkdtemp()
+        target_file_path = os.path.join(tmp_dir, remote_path)
+
+        # Ensure all parent folders exist
+        os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
+
+        # Copy single file or entire folder structure
+        if os.path.isfile(local_path):
+            shutil.copy2(local_path, target_file_path)
+        else:
+            # Copy entire folder into remote subfolder
+            shutil.copytree(local_path, os.path.dirname(target_file_path), dirs_exist_ok=True)
+
+        # Create tarball from temp structure
+        tarball = make_tarball(tmp_dir)
+
+    else:
+
+        # CASE B — Standard push (directory or file)
+        if not os.path.exists(local_path):
+            print(f"[red]✗ Local path does not exist: {local_path}[/red]")
+            raise typer.Exit(code=1)
+
+        tarball = make_tarball(local_path)
+
+    # Perform the push
     try:
-        tarball = make_tarball(path)
         response = api.push_repo(repo, tarball, commit_message=message)
         print(f"[green]✓ Pushed successfully[/green]")
         print(response)
     except Exception as e:
         print(f"[bold red]Failed to push to repository: {e}[/bold red]")
+
 
 @app.command("pull")
 def pull(repo: str, destination: str = typer.Argument(".")):
@@ -128,9 +168,7 @@ def pull(repo: str, destination: str = typer.Argument(".")):
 
     api = OpenverseAPI()
 
-    # -----------------------------
     # Resolve destination
-    # -----------------------------
     destination = os.path.abspath(destination)
 
     # Default case → create ./repo/
@@ -143,14 +181,10 @@ def pull(repo: str, destination: str = typer.Argument(".")):
     os.makedirs(target_root, exist_ok=True)
 
     try:
-        # -----------------------------
         # Download tarball
-        # -----------------------------
         tarball_bytes = api.pull_repo(repo)
 
-        # -----------------------------
         # Extract to temp directory
-        # -----------------------------
         tmp_dir = tempfile.mkdtemp()
         tar_path = os.path.join(tmp_dir, "repo.tar.gz")
 
@@ -166,9 +200,7 @@ def pull(repo: str, destination: str = typer.Argument(".")):
         if not os.path.isdir(extracted_repo_dir):
             raise Exception("Unexpected archive structure: missing repo folder")
 
-        # -----------------------------
         # Merge extracted repo into target_root
-        # -----------------------------
         for root, dirs, files in os.walk(extracted_repo_dir):
             rel = os.path.relpath(root, extracted_repo_dir)
             dest_dir = os.path.join(target_root, rel) if rel != "." else target_root

@@ -1,17 +1,16 @@
 # Openverse SDK & CLI (Beta)
 
-The **Openverse SDK** provides a lightweight interface for loading and running text-based agent environments from the **Openverse Hub**.
+The **Openverse SDK** provides a lightweight Python interface for loading and running **text-based agent environments** hosted on the **Openverse Hub**.
+It also includes the **Openverse CLI** (`openverse-cli`), a command-line tool for creating, pushing, pulling, and managing environment repositories — similar to `huggingface-cli`.
 
-Alongside the SDK, the package also includes the **Openverse CLI** (`openverse-cli`), a command-line tool for creating, pushing, pulling, and managing environment repositories — similar to `huggingface-cli`.
+This toolkit enables researchers and developers to **create, distribute, and use reproducible evaluation environments** for benchmarking agents and LLMs.
 
-This toolkit allows researchers and developers to **create, distribute, and use environments** for benchmarking Agents and LLMs.
-
-> **Status:** Beta — API subject to changes as features expand.
-> **Docs:** [https://open-verse.ai/docs](https://open-verse.ai/docs) (coming soon)
+> **Status:** Beta — APIs will expand and evolve.
+> **Documentation:** [https://open-verse.ai/docs](https://open-verse.ai/docs) *(coming soon)*
 
 ---
 
-# Installation
+## Installation
 
 Install from PyPI:
 
@@ -21,31 +20,28 @@ pip install openverse-sdk
 
 This installs:
 
-* the **Python SDK** (`openverse`)
-* the **Openverse CLI** (`openverse-cli`)
+* **Python SDK** (`openverse`)
+* **Openverse CLI** (`openverse-cli`)
 
 ---
 
 # SDK Usage
 
-The SDK allows you to load and run environments locally.
-Environments are automatically cached in:
+The Python SDK lets you **load, run, and cache** environments locally.
+Environments are cached in:
 
 ```
 ~/.cache/openverse_envs/
 ```
 
-### **Load an environment**
+### Load an Environment
 
 ```python
 from openverse import make
-
 env = make("TicTacToe-v0")
-obs = env.reset()
-print(obs)
 ```
 
-### **Force reload (skip cache)**
+### Force Reload (skip cache)
 
 ```python
 env = make("WordSearch-v0", force_reload=True)
@@ -55,28 +51,30 @@ env = make("WordSearch-v0", force_reload=True)
 
 # Openverse CLI
 
-The `openverse-cli` tool is used to **interact with the Openverse Hub**, including creating, pushing, and pulling environment repositories.
-It functions similarly to `huggingface-cli`.
+The CLI provides a simple way to **interact with the Openverse Hub**, including:
 
-### Check installation:
+* Creating environment repositories
+* Uploading (pushing) code
+* Downloading (pulling) environments
+* Managing tokens & authentication
+
+Check installation:
 
 ```bash
 openverse-cli --help
 ```
 
-You should see all available commands.
-
 ---
 
 # Authentication
 
-Before using CLI functionality, log in with your **Openverse API token**:
+Log in using an **Openverse API Token**:
 
 ```bash
 openverse-cli login
 ```
 
-The CLI will prompt for your token (input hidden) and store it in:
+Your token (input hidden) is stored in:
 
 ```
 ~/.openverse/token.json
@@ -86,25 +84,23 @@ The CLI will prompt for your token (input hidden) and store it in:
 
 # Creating an Environment Repository
 
-To upload a new environment to the Openverse Hub:
-
 ```bash
 openverse-cli create MyEnv-v0
 ```
 
-This creates a new repository under your Openverse account.
+This creates a new repository under your Openverse account in the Hub.
 
 ---
 
 # Pushing Environment Code
 
-Push your local folder (defaults to `.`):
+Push your local folder (default is `.`):
 
 ```bash
 openverse-cli push MyEnv-v0 .
 ```
 
-This sends a tarball of your code to the Hub, where it is stored in a Git-based repository.
+This sends a tarball of your code to the Hub and updates the Git repo.
 
 ---
 
@@ -116,33 +112,35 @@ Download an environment’s source code:
 openverse-cli pull MyEnv-v0
 ```
 
-This saves the repository contents to:
+It will be extracted into:
 
 ```
-./repo.tar.gz
+./MyEnv-v0/
 ```
+
+This mirrors HuggingFace-style behavior.
 
 ---
 
-# Directory Structure (SDK + CLI)
+# Package Structure
 
-This package bundles both the SDK and the CLI:
+This repository bundles both the **SDK** and the **CLI**:
 
 ```
 openverse/
 │
-├── make.py         # SDK: load environments
-├── utils.py        # SDK utils
+├── make.py          # SDK: environment loader
+├── utils.py         # SDK utilities
 │
-└── cli/            # CLI implementation
-    ├── cli.py      # Typer entrypoint
+└── cli/             # CLI implementation
+    ├── cli.py       # Typer entrypoint
     ├── api.py
     ├── auth.py
     ├── config.py
     └── utils.py
 ```
 
-The CLI executable is exposed via:
+The CLI executable is defined via:
 
 ```toml
 [project.scripts]
@@ -151,22 +149,13 @@ openverse-cli = "openverse.cli.cli:app"
 
 ---
 
-# Roadmap
-
-* Private environment support
-* Versioning (`--tag v1.0`)
-* Collaboration model (add/remove collaborators)
-* Environment templates (`openverse-cli init`)
-* Docs & tutorials
-
----
-
 # Contributing
 
-We’re actively developing Openverse and welcome contributions — environments, feedback, or discussions.
+We welcome contributions — environments, issues, and feedback.
+If you’re building evaluation environments or agent benchmarks, join us!
 
 ---
 
 # License
 
-MIT License © Openverse.ai
+**MIT License © Openverse.ai**

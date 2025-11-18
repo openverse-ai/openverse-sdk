@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openverse-sdk"
-version = "0.1.0"
+version = "0.0.4"
 description = "Openverse SDK and CLI for loading, creating, and managing environments."
 readme = "README.md"
 requires-python = ">=3.8"
