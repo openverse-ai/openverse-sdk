@@ -5,12 +5,12 @@ from .auth import login as _login
 from .auth import logout as _logout
 from .auth import whoami as _whoami
 from .api import OpenverseAPI
-from .utils import make_tarball
+from .utils import make_tarball, normalize_repo_path
 import os
 import tarfile
 import tempfile
 import shutil
-
+from requests.exceptions import HTTPError
 
 app = typer.Typer(help="Openverse CLI — Manage your AI Environment Repositories")
 
@@ -67,8 +67,6 @@ def whoami_cmd():
     """Display the currently logged-in user."""
     _whoami()
 
-from requests.exceptions import HTTPError
-
 @app.command("create")
 def create(repo: str):
     """Create a new Openverse environment repository."""
@@ -104,56 +102,81 @@ def push(
     )
 ):
     """
-    Push local files to an environment repository.
+    HuggingFace-style push:
 
-    Usage:
-      openverse-cli push repo .                       → push entire folder
-      openverse-cli push repo ./file.txt              → push single file to root
-      openverse-cli push repo ./a/b.txt x/y/z.txt     → push into subfolder x/y/z.txt
+    openverse-cli push repo ./folder ./remote
+      → repo/remote/<folder contents>
+
+    openverse-cli push repo ./file.py ./remote/file.py
+      → repo/remote/file.py
+
+    openverse-cli push repo ./folder
+      → repo/<folder contents>
     """
 
     api = OpenverseAPI()
 
-    # CASE A — User provided remote path
-    if remote_path is not None:
+    if not os.path.exists(local_path):
+        print(f"[red]✗ Local path does not exist: {local_path}[/red]")
+        raise typer.Exit(1)
 
-        if not os.path.exists(local_path):
-            print(f"[red]✗ Local path does not exist: {local_path}[/red]")
-            raise typer.Exit(code=1)
+    # --- normalise remote path (strip './', treat as folder unless single file)
+    if remote_path:
+        try:
+            clean_remote_path = normalize_repo_path(remote_path)
+            if clean_remote_path in [".", ""]:  # ADD THIS
+                clean_remote_path = ""
+        except Exception as e:
+            print(f"[red]✗ Invalid remote_path: {e}[/red]")
+            raise typer.Exit(1)
+    else:
+        clean_remote_path = ""
 
-        # Create a temp structure that mirrors what the server expects
-        tmp_dir = tempfile.mkdtemp()
-        target_file_path = os.path.join(tmp_dir, remote_path)
 
-        # Ensure all parent folders exist
-        os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
+    # --- build temp folder to construct tarball
+    tmp_dir = tempfile.mkdtemp()
 
-        # Copy single file or entire folder structure
-        if os.path.isfile(local_path):
-            shutil.copy2(local_path, target_file_path)
-        else:
-            # Copy entire folder into remote subfolder
-            shutil.copytree(local_path, os.path.dirname(target_file_path), dirs_exist_ok=True)
+    # compute the final target directory in tarball:
+    # tmp_dir/<clean_remote_path>
+    target_root = os.path.join(tmp_dir, clean_remote_path)
+    os.makedirs(target_root, exist_ok=True)
 
-        # Create tarball from temp structure
-        tarball = make_tarball(tmp_dir)
+    # --- local path is file → remote_path treated as file
+    if os.path.isfile(local_path):
+        # if remote_path ends with '/', prevent it
+        if clean_remote_path.endswith("/"):
+            print("[red]✗ Remote path cannot end with '/': specify a filename[/red]")
+            raise typer.Exit(1)
+
+        shutil.copy2(local_path, target_root)
 
     else:
+        # --- local path is directory → copy contents, not folder itself
+        for item in os.listdir(local_path):
+            src_item = os.path.join(local_path, item)
+            dst_item = os.path.join(target_root, item)
 
-        # CASE B — Standard push (directory or file)
-        if not os.path.exists(local_path):
-            print(f"[red]✗ Local path does not exist: {local_path}[/red]")
-            raise typer.Exit(code=1)
+            if os.path.isdir(src_item):
+                shutil.copytree(src_item, dst_item, dirs_exist_ok=True)
+            else:
+                shutil.copy2(src_item, dst_item)
 
-        tarball = make_tarball(local_path)
+    # --- Now tar the tmp_dir
+    tarball = make_tarball(tmp_dir)
 
-    # Perform the push
+    # --- Send to server
     try:
-        response = api.push_repo(repo, tarball, commit_message=message)
+        response = api.push_repo(
+            repo,
+            tarball,
+            commit_message=message,
+            remote_path=clean_remote_path if clean_remote_path else None,
+        )
         print(f"[green]✓ Pushed successfully[/green]")
         print(response)
     except Exception as e:
         print(f"[bold red]Failed to push to repository: {e}[/bold red]")
+
 
 
 @app.command("pull")
@@ -230,6 +253,36 @@ def pull(repo: str, destination: str = typer.Argument(".")):
 
     except Exception as e:
         print(f"[bold red]Unexpected error: {e}[/bold red]")
+
+@app.command("delete")
+def delete(repo: str, path: str):
+    """
+    Delete a file or folder from an environment repo on the hub.
+    HuggingFace-style deletion.
+    """
+
+    api = OpenverseAPI()
+
+    print(f"🗑 Deleting '{path}' in environment '{repo}'...")
+
+    try:
+        try:
+            clean_path = normalize_repo_path(path)
+        except Exception as e:
+            print(f"[red]✗ Invalid path: {e}[/red]")
+            raise typer.Exit(1)
+
+        result = api.delete_path(repo, clean_path)
+        print("✓ Deleted successfully")
+        print(result)
+
+    except HTTPError as e:
+        print(f"❌ Failed: {e.response.text}")
+        raise typer.Exit(1)
+
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        raise typer.Exit(1)
 
 if __name__ == "__main__":
     app()

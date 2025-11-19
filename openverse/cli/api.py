@@ -41,7 +41,8 @@ class OpenverseAPI:
         self,
         env_name: str,
         tarball_bytes: bytes,
-        commit_message: str | None = None
+        commit_message: str | None = None,
+        remote_path: str | None = None
     ) -> dict:
 
         files = {
@@ -52,6 +53,8 @@ class OpenverseAPI:
         data = {}
         if commit_message:
             data["commit_message"] = commit_message
+        if remote_path:
+            data["remote_path"] = remote_path
 
         r = requests.post(
             f"{BASE_URL}/env/{env_name}/push",
@@ -70,3 +73,12 @@ class OpenverseAPI:
         )
         r.raise_for_status()
         return r.content
+    
+    def delete_path(self, env_name: str, target_path: str) -> dict:
+        r = requests.delete(
+            f"{BASE_URL}/env/{env_name}/delete",
+            headers=self._headers(),
+            params={"target_path": target_path},
+        )
+        r.raise_for_status()
+        return r.json()
