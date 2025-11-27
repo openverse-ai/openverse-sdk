@@ -7,7 +7,7 @@ from .utils import git_clone, load_entry_point, dynamic_import
 CACHE_DIR = Path(os.path.expanduser("~/.cache/openverse_envs"))
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-GITEA_BASE = "http://52.221.207.255:3000/openverse_hub"
+GITEA_BASE = "https://hub.open-verse.ai/openverse_hub"
 
 def make(id: str, force_reload: bool = False):
     """
